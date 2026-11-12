@@ -78,26 +78,46 @@ export default function ScrollSections() {
         </div>
       </section>
 
-      {/* Section 7: CTA + Footer (Scaffold for Phase 4) */}
+      {/* Section 7: CTA + Footer with CC-BY Model Credits */}
       <section
         id="section-cta"
         className="flex min-h-screen w-full flex-col justify-end px-6 pb-16 pt-24 md:px-16"
       >
-        <div className="mx-auto flex w-full max-w-[1440px] items-end justify-between border-t border-white/10 pt-8 pointer-events-auto">
-          <div>
-            <span className="font-mono text-[10px] tracking-[0.3em] uppercase text-[#00f0ff]">
-              05 // ALLOCATION
-            </span>
-            <h3 className="mt-1 font-display text-3xl md:text-5xl font-bold uppercase text-white">
-              RESERVE YOUR VANTA
-            </h3>
+        <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 border-t border-white/10 pt-8 pointer-events-auto">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+              <span className="font-mono text-[10px] tracking-[0.3em] uppercase text-[#00f0ff]">
+                05 // ALLOCATION
+              </span>
+              <h3 className="mt-1 font-display text-3xl md:text-5xl font-bold uppercase text-white">
+                RESERVE YOUR VANTA
+              </h3>
+            </div>
+            <div className="text-xs font-mono tracking-[0.2em] text-white/40 uppercase">
+              © 2026 VANTA AUTOMOTIVE INC.
+            </div>
           </div>
-          <div className="text-xs font-mono tracking-[0.2em] text-white/40 uppercase">
-            © {new Date().getFullYear()} VANTA AUTOMOTIVE INC.
+
+          {/* 3D Asset CC-BY & Public Domain Attribution Footer */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/5 pt-4 text-[10px] font-mono tracking-[0.14em] text-white/35">
+            <div>
+              3D ASSETS: &ldquo;FREE Concept Car 002&rdquo; by Unity Fan youtube channel (CC0 Public
+              Domain) • &ldquo;Spaceship 001 - Cockpit Concept&rdquo; by Mixmamo.studio (CC-BY 4.0,
+              see{' '}
+              <a
+                href="/models/CREDITS.md"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[#00f0ff]/80 hover:underline"
+              >
+                /models/CREDITS.md
+              </a>
+              )
+            </div>
+            <div>FICTIONAL BRAND // NO AFFILIATION WITH REAL AUTOMAKERS</div>
           </div>
         </div>
       </section>
     </div>
   );
 }
-

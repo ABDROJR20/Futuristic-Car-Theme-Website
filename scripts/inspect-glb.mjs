@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const MODELS_DIR = path.resolve(process.cwd(), 'public', 'models');
+const MODELS_DIR = path.resolve(import.meta.dirname, '..', 'public', 'models');
 const FILES = ['exterior.glb', 'interior.glb'];
 
 function parseGlbJsonChunk(filePath) {

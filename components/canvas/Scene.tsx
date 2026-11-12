@@ -1,13 +1,12 @@
 'use client';
 
-import React, { Suspense, lazy, useEffect } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { Suspense, lazy, useEffect, useRef } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import {
   Environment,
   Lightformer,
   MeshReflectorMaterial,
   ContactShadows,
-  Html,
   useGLTF,
 } from '@react-three/drei';
 import * as THREE from 'three';
@@ -19,16 +18,18 @@ import { useVantaStore } from '@/store/useVantaStore';
 
 const InteriorScene = lazy(() => import('./InteriorScene'));
 
-function SceneSwapLoader({ label }: { label: string }) {
+function SceneLoaderRing() {
+  const ringRef = useRef<THREE.Mesh>(null);
+  useFrame((_, delta) => {
+    if (ringRef.current) {
+      ringRef.current.rotation.z += delta * 2.5;
+    }
+  });
   return (
-    <Html center>
-      <div className="flex items-center gap-3 rounded-full border border-[#00f0ff]/40 bg-[#05060a]/90 px-5 py-2.5 text-white shadow-[0_0_30px_rgba(0,240,255,0.25)] backdrop-blur-xl">
-        <span className="h-2.5 w-2.5 animate-ping rounded-full bg-[#00f0ff]" />
-        <span className="whitespace-nowrap font-mono text-[11px] tracking-[0.25em] uppercase text-white/85">
-          {label}
-        </span>
-      </div>
-    </Html>
+    <mesh ref={ringRef} position={[0, 0.75, 0]}>
+      <torusGeometry args={[0.45, 0.015, 16, 64, Math.PI * 1.4]} />
+      <meshBasicMaterial color="#00f0ff" />
+    </mesh>
   );
 }
 
@@ -182,7 +183,7 @@ export default function Scene() {
         {activeScene === 'exterior' ? (
           <>
             <GlbErrorBoundary modelPath={GLB_MODEL_CONFIG.exteriorModelPath}>
-              <Suspense fallback={<SceneSwapLoader label="LOADING EXTERIOR.GLB..." />}>
+              <Suspense fallback={<SceneLoaderRing />}>
                 <ExteriorCar />
               </Suspense>
             </GlbErrorBoundary>
@@ -190,7 +191,7 @@ export default function Scene() {
           </>
         ) : (
           <GlbErrorBoundary modelPath={GLB_MODEL_CONFIG.interiorModelPath}>
-            <Suspense fallback={<SceneSwapLoader label="LOADING COCKPIT INTERIOR.GLB..." />}>
+            <Suspense fallback={<SceneLoaderRing />}>
               <InteriorScene />
             </Suspense>
           </GlbErrorBoundary>

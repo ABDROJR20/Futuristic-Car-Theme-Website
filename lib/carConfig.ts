@@ -59,16 +59,40 @@ export const GLB_MODEL_CONFIG: GlbDerivedNodeConfig = {
   targetExteriorLengthMeters: 4.65,
   targetInteriorSpanMeters: 2.8,
   derivedNodes: {
-    body: [],
+    body: [
+      'future_car_002_by_unityfan_carpaint_0',
+      'future_car_002_by_unityfan_plastic_0',
+      'future_car_002_by_unityfan_chrome_0',
+      'future_car_002_by_unityfan_metal1_0',
+      'future_car_002_by_unityfan_blocker_0',
+    ],
     doors: {
       left: [],
       right: [],
-      hasSeparateDoors: null,
+      hasSeparateDoors: false,
     },
-    wheels: [],
-    glass: [],
-    lights: [],
-    interior: [],
+    wheels: [
+      'future_car_002_by_unityfan_metal2_0',
+      'future_car_002_by_unityfan_rubber_0',
+    ],
+    glass: [
+      'future_car_002_by_unityfan_glass1_0',
+      'future_car_002_by_unityfan_glass2_0',
+    ],
+    lights: [
+      'future_car_002_by_unityfan_taillights_0',
+      'future_car_002_by_unityfan_glass3_0',
+    ],
+    interior: [
+      'GLTF_SceneRootNode',
+      'interio#1_579',
+      'Object_2163',
+      'Object_2164',
+      'Object_2165',
+      'Object_2166',
+      'Object_2167',
+      'Object_2168',
+    ],
   },
 };
 

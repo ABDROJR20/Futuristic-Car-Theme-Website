@@ -8,22 +8,58 @@ import { triggerEnterInterior } from '@/components/canvas/CameraRig';
 export default function HeroSection() {
   const activeCar = useVantaStore((s) => s.activeCar);
   const heroState = useVantaStore((s) => s.heroState);
+  const activeSection = useVantaStore((s) => s.activeSection);
   const accentColor = useVantaStore((s) => s.accentColor);
   const exteriorDoorDiagnostic = useVantaStore((s) => s.exteriorDoorDiagnostic);
   const triggerAssembly = useVantaStore((s) => s.triggerAssembly);
+  const setCursorLabel = useVantaStore((s) => s.setCursorLabel);
 
   const car = CAR_LINEUP[activeCar] ?? CAR_LINEUP[0];
 
-  // Hide exterior Hero UI when inside the car
   if (heroState === 'interior') {
     return <section id="section-hero" className="min-h-screen w-full pointer-events-none" />;
   }
+
+  const showCabinHotspot =
+    activeSection === 'hero' &&
+    (heroState === 'doorsOpen' ||
+      (!exteriorDoorDiagnostic.hasSeparateDoors && heroState === 'idle'));
 
   return (
     <section
       id="section-hero"
       className="relative flex min-h-screen w-full flex-col justify-between overflow-hidden px-6 pt-28 pb-10 md:px-14 pointer-events-none select-none"
     >
+      {/* 3D-Projected Exterior Cabin Hotspot (zero R3F <Html> portals) */}
+      <div
+        id="vanta-exterior-hotspot"
+        style={{ top: 0, left: 0 }}
+        className={`fixed z-20 will-change-transform transition-opacity duration-300 ${
+          showCabinHotspot
+            ? 'opacity-100 pointer-events-auto'
+            : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <button
+          type="button"
+          onMouseEnter={() => setCursorLabel('ENTER')}
+          onMouseLeave={() => setCursorLabel(null)}
+          onClick={(e) => {
+            e.stopPropagation();
+            triggerEnterInterior();
+          }}
+          className="group relative flex cursor-pointer items-center gap-2.5 rounded-full border border-[#00f0ff]/80 bg-black/80 px-4 py-2 text-white shadow-[0_0_30px_rgba(0,240,255,0.55)] backdrop-blur-xl transition-all duration-300 hover:scale-110 hover:bg-[#00f0ff] hover:text-black"
+        >
+          <span className="relative flex h-3 w-3">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00f0ff] opacity-85" />
+            <span className="relative inline-flex h-3 w-3 rounded-full bg-[#00f0ff] group-hover:bg-black" />
+          </span>
+          <span className="whitespace-nowrap font-mono text-[11px] font-semibold tracking-[0.24em] uppercase">
+            ENTER COCKPIT
+          </span>
+        </button>
+      </div>
+
       {/* Giant Outlined Backdrop Title Behind the 3D Car */}
       <div
         aria-hidden="true"
@@ -58,11 +94,6 @@ export default function HeroSection() {
           <p className="text-xs font-mono tracking-[0.18em] text-white/40 uppercase">
             {car.subtitle}
           </p>
-          {exteriorDoorDiagnostic.hasSeparateDoors === false && (
-            <p className="mt-1 max-w-md rounded border border-amber-400/30 bg-amber-950/40 px-2.5 py-1 font-mono text-[10px] text-amber-200/90 backdrop-blur-md">
-              GLB DIAGNOSTIC: {exteriorDoorDiagnostic.message}
-            </p>
-          )}
         </div>
 
         <div className="pointer-events-auto flex items-center gap-2.5">
@@ -89,7 +120,7 @@ export default function HeroSection() {
         <div className="max-w-lg space-y-2">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 backdrop-blur-md">
             <span className="text-[10px] font-mono tracking-[0.24em] text-[#00f0ff] uppercase">
-              HOVER CAR TO OPEN DOORS • CLICK HOTSPOT FOR 360° CABIN
+              HOVER CAR TO INTERACT • CLICK HOTSPOT FOR 360° CABIN
             </span>
           </div>
           <h2 className="font-display text-2xl md:text-4xl font-bold tracking-tight uppercase text-white">

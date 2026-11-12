@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useMemo } from 'react';
-import { Html, useGLTF } from '@react-three/drei';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import gsap from 'gsap';
 import {
@@ -16,10 +17,9 @@ import { useVantaStore } from '@/store/useVantaStore';
 
 export default function InteriorScene() {
   const gltf = useGLTF(GLB_MODEL_CONFIG.interiorModelPath, true);
+  const projVecRef = useRef(new THREE.Vector3());
 
   const accentColor = useVantaStore((s) => s.accentColor);
-  const activeHotspotId = useVantaStore((s) => s.activeHotspotId);
-  const setActiveHotspotId = useVantaStore((s) => s.setActiveHotspotId);
   const setInteriorLoading = useVantaStore((s) => s.setInteriorLoading);
 
   // Premium Interior Materials (Section 4 requirements)
@@ -126,6 +126,11 @@ export default function InteriorScene() {
             : mesh.material?.name || ''
         }`.toLowerCase();
 
+        // Hide real brand logo/badge meshes if present
+        if (/\b(logo|emblem|badge|audi|bmw|mercedes|porsche|bentley|tesla|ferrari)\b/i.test(token)) {
+          mesh.name = mesh.name.replace(/bentley|audi|bmw|mercedes|porsche|tesla/gi, 'VANTA');
+        }
+
         if (cat === 'ambient' || cat === 'light') {
           mesh.material = interiorMaterials.ambientWaveguide;
         } else if (cat === 'display') {
@@ -149,6 +154,31 @@ export default function InteriorScene() {
   useEffect(() => {
     setInteriorLoading(false);
   }, [setInteriorLoading]);
+
+  // Project 7 3D hotspot coordinates onto 2D screen coordinates every frame (zero <Html> portals)
+  useFrame((state) => {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+    for (const spot of INTERIOR_HOTSPOTS) {
+      const el = document.getElementById(`vanta-hotspot-${spot.id}`);
+      if (!el) continue;
+
+      const vec = projVecRef.current.set(...spot.position);
+      vec.project(state.camera);
+
+      if (vec.z > 1) {
+        el.style.opacity = '0';
+        el.style.pointerEvents = 'none';
+      } else {
+        const x = (vec.x * 0.5 + 0.5) * w;
+        const y = (-(vec.y * 0.5) + 0.5) * h;
+        el.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
+        el.style.opacity = '1';
+        el.style.pointerEvents = 'auto';
+      }
+    }
+  });
 
   return (
     <group>
@@ -190,82 +220,6 @@ export default function InteriorScene() {
       <mesh position={[0.72, 0.76, 0.05]} material={interiorMaterials.ambientWaveguide}>
         <boxGeometry args={[0.008, 0.008, 1.05]} />
       </mesh>
-
-      {/* 7 Interactive Interior Hotspots with Glassmorphism Spec Cards */}
-      {INTERIOR_HOTSPOTS.map((spot) => {
-        const isHovered = activeHotspotId === spot.id;
-
-        return (
-          <Html
-            key={spot.id}
-            position={spot.position}
-            center
-            zIndexRange={[30, 0]}
-          >
-            <div
-              className="relative flex items-center justify-center select-none"
-              onMouseEnter={() => setActiveHotspotId(spot.id)}
-              onMouseLeave={() => setActiveHotspotId(null)}
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveHotspotId(isHovered ? null : spot.id);
-              }}
-            >
-              {/* Pulsing Hotspot Dot */}
-              <button
-                type="button"
-                aria-label={spot.name}
-                className="group relative flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-white/30 bg-black/70 backdrop-blur-md transition-transform duration-300 hover:scale-125"
-                style={{
-                  borderColor: isHovered ? accentColor : 'rgba(255,255,255,0.35)',
-                  boxShadow: isHovered
-                    ? `0 0 22px ${accentColor}`
-                    : `0 0 12px ${accentColor}66`,
-                }}
-              >
-                <span
-                  className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
-                  style={{ backgroundColor: accentColor }}
-                />
-                <span
-                  className="relative inline-flex h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: accentColor }}
-                />
-              </button>
-
-              {/* Glassmorphism Spec Card on Hover */}
-              {isHovered && (
-                <div className="pointer-events-none absolute bottom-10 left-1/2 w-72 -translate-x-1/2 rounded-2xl border border-white/15 bg-[#05060a]/88 p-4 text-left text-white shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-200">
-                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                    <span
-                      className="font-mono text-[9px] font-semibold tracking-[0.26em] uppercase"
-                      style={{ color: accentColor }}
-                    >
-                      {spot.category}
-                    </span>
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  </div>
-                  <h4 className="mt-2 font-display text-sm font-bold tracking-wider uppercase text-white">
-                    {spot.name}
-                  </h4>
-                  <ul className="mt-2 space-y-1.5 text-[11px] leading-snug text-white/75">
-                    {spot.specs.map((specLine, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span
-                          className="mt-1.5 h-1 w-1 shrink-0 rounded-full"
-                          style={{ backgroundColor: accentColor }}
-                        />
-                        <span>{specLine}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </Html>
-        );
-      })}
     </group>
   );
 }
-

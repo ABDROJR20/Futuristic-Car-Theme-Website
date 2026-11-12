@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Html, useGLTF } from '@react-three/drei';
+import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import gsap from 'gsap';
 import {
@@ -15,7 +15,6 @@ import {
   inspectAndNormalizeGlb,
 } from '@/lib/glbInspector';
 import { useVantaStore } from '@/store/useVantaStore';
-import { triggerEnterInterior } from './CameraRig';
 
 interface RealMeshPartRecord {
   mesh: THREE.Mesh;
@@ -41,6 +40,7 @@ export default function ExteriorCar() {
   const sweepLightRef = useRef<THREE.PointLight>(null);
   const sweepBeamRef = useRef<THREE.Mesh>(null);
   const hoverCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const projVecRef = useRef(new THREE.Vector3());
 
   const heroState = useVantaStore((s) => s.heroState);
   const activeCar = useVantaStore((s) => s.activeCar);
@@ -49,7 +49,6 @@ export default function ExteriorCar() {
   const preloaderDone = useVantaStore((s) => s.preloaderDone);
   const assemblyKey = useVantaStore((s) => s.assemblyKey);
   const isReducedMotion = useVantaStore((s) => s.isReducedMotion);
-  const isMobile = useVantaStore((s) => s.isMobile);
 
   const setHeroState = useVantaStore((s) => s.setHeroState);
   const setCursorLabel = useVantaStore((s) => s.setCursorLabel);
@@ -108,12 +107,7 @@ export default function ExteriorCar() {
   }, [carConfig.defaultColor, carConfig.accentColor]);
 
   // Clone scene, inspect nodes, derive config, upgrade materials, and build door hinge pivots
-  const {
-    clonedScene,
-    report,
-    partRecords,
-    wheelCenters,
-  } = useMemo(() => {
+  const { clonedScene, report, partRecords } = useMemo(() => {
     const clone = gltf.scene.clone(true);
     const inspection = inspectAndNormalizeGlb(
       clone,
@@ -137,7 +131,6 @@ export default function ExteriorCar() {
     const meshes: THREE.Mesh[] = [];
     const leftDoorMeshes: THREE.Mesh[] = [];
     const rightDoorMeshes: THREE.Mesh[] = [];
-    const detectedWheelCenters: THREE.Vector3[] = [];
 
     clone.traverse((node) => {
       if ((node as THREE.Mesh).isMesh) {
@@ -150,22 +143,28 @@ export default function ExteriorCar() {
         meshBox.getCenter(meshCenter);
 
         const category = classifyMeshNode(mesh, meshCenter, overallCenter);
+        const token = `${mesh.name} ${
+          Array.isArray(mesh.material)
+            ? mesh.material.map((m) => m.name).join(' ')
+            : mesh.material?.name || ''
+        }`.toLowerCase();
+
+        // Remove any real brand logo decals/emblems if present
+        if (/\b(logo|emblem|badge|audi|bmw|mercedes|porsche|bentley|tesla|ferrari)\b/i.test(token)) {
+          mesh.visible = false;
+        }
 
         // Apply premium materials per semantic category
         if (category === 'body' || category === 'doorLeft' || category === 'doorRight') {
           mesh.material = premiumMaterials.bodyPaint;
-        } else if (category === 'glass') {
+        } else if (category === 'glass' || /glass1|glass2/i.test(token)) {
           mesh.material = premiumMaterials.tintedGlass;
-        } else if (category === 'light') {
+        } else if (category === 'light' || /taillights|glass3/i.test(token)) {
           mesh.material = premiumMaterials.pulsingLightEmissive;
-        } else if (category === 'wheel') {
-          const matName = Array.isArray(mesh.material)
-            ? mesh.material.map((m) => m.name).join(' ')
-            : mesh.material?.name || '';
-          if (!/tire|tyre|rubber/i.test(`${mesh.name} ${matName}`)) {
+        } else if (category === 'wheel' || /metal2/i.test(token)) {
+          if (!/tire|tyre|rubber/i.test(token)) {
             mesh.material = premiumMaterials.darkWheelMetal;
           }
-          detectedWheelCenters.push(meshCenter.clone());
         }
 
         if (category === 'doorLeft') leftDoorMeshes.push(mesh);
@@ -175,7 +174,6 @@ export default function ExteriorCar() {
       }
     });
 
-    // If separate door nodes exist, create real hinge pivot groups at the leading outer door edge
     leftDoorPivotRef.current = null;
     rightDoorPivotRef.current = null;
 
@@ -186,7 +184,6 @@ export default function ExteriorCar() {
       const c = new THREE.Vector3();
       unionBox.getCenter(c);
 
-      // Leading front-outer edge of the door
       const pivotWorld = new THREE.Vector3(
         isLeft ? unionBox.min.x : unionBox.max.x,
         c.y,
@@ -196,7 +193,7 @@ export default function ExteriorCar() {
       const pivotGroup = new THREE.Group();
       pivotGroup.name = isLeft ? 'derived_hinge_pivot_left' : 'derived_hinge_pivot_right';
       clone.add(pivotGroup);
-      pivotGroup.position.copy( clone.worldToLocal(pivotWorld.clone()) );
+      pivotGroup.position.copy(clone.worldToLocal(pivotWorld.clone()));
       pivotGroup.updateMatrixWorld(true);
 
       doorMeshes.forEach((m) => {
@@ -227,7 +224,8 @@ export default function ExteriorCar() {
       }
       dir.normalize();
 
-      const explodeDist = (2.2 + seededRandom(idx * 7) * 2.4) / Math.max(inspection.normalizedScale, 0.1);
+      const explodeDist =
+        (2.2 + seededRandom(idx * 7) * 2.4) / Math.max(inspection.normalizedScale, 0.1);
       const assembledPos = mesh.position.clone();
       const assembledRot = mesh.rotation.clone();
       const assembledScale = mesh.scale.clone();
@@ -261,7 +259,6 @@ export default function ExteriorCar() {
       clonedScene: clone,
       report: inspection,
       partRecords: records,
-      wheelCenters: detectedWheelCenters.slice(0, 4),
     };
   }, [gltf.scene, premiumMaterials]);
 
@@ -341,7 +338,7 @@ export default function ExteriorCar() {
       rec.mesh.rotation.copy(rec.explodedRot);
     });
 
-    const staggerStep = Math.min(0.035, 0.9 / Math.max(partRecords.length, 1));
+    const staggerStep = Math.min(0.055, 0.9 / Math.max(partRecords.length, 1));
 
     const tl = gsap.timeline({
       onComplete: () => {
@@ -375,9 +372,8 @@ export default function ExteriorCar() {
       );
     });
 
-    // Light sweep at the end of assembly
     if (sweepLightRef.current && sweepBeamRef.current) {
-      const sweepStart = partRecords.length * staggerStep + 0.5;
+      const sweepStart = partRecords.length * staggerStep + 0.45;
       tl.set(sweepLightRef.current, { intensity: 0 }, 0);
       tl.set(sweepLightRef.current.position, { x: 0, y: 1.4, z: -2.8 }, sweepStart);
       tl.set(sweepBeamRef.current.position, { x: 0, y: 0.75, z: -2.8 }, sweepStart);
@@ -436,13 +432,26 @@ export default function ExteriorCar() {
     }
   }, [heroState, carConfig, isReducedMotion]);
 
-  // Subtle cyan light strip pulse
+  // Subtle cyan light strip pulse + 3D-to-2D screen projection for the exterior cabin hotspot
   useFrame((state) => {
     const pulse = 2.8 + Math.sin(state.clock.elapsedTime * 2.6) * 0.65;
     premiumMaterials.pulsingLightEmissive.emissiveIntensity = pulse;
+
+    const hotspotEl = document.getElementById('vanta-exterior-hotspot');
+    if (hotspotEl) {
+      const vec = projVecRef.current.set(...carConfig.hotspotPosition);
+      vec.project(state.camera);
+      if (vec.z > 1) {
+        hotspotEl.style.opacity = '0';
+      } else {
+        const x = (vec.x * 0.5 + 0.5) * window.innerWidth;
+        const y = (-(vec.y * 0.5) + 0.5) * window.innerHeight;
+        hotspotEl.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
+        hotspotEl.style.opacity = '1';
+      }
+    }
   });
 
-  // Pointer interactions on the car group (hover -> doorsOpen, custom cursor "OPEN")
   const handleCarPointerOver = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     if (hoverCloseTimeoutRef.current) {
@@ -473,8 +482,6 @@ export default function ExteriorCar() {
     }
   };
 
-  const showCabinHotspot = heroState === 'doorsOpen' || (!report.hasSeparateDoors && heroState === 'idle');
-
   return (
     <group ref={rootGroupRef}>
       {/* Auto-normalized & grounded GLB exterior car */}
@@ -486,53 +493,24 @@ export default function ExteriorCar() {
         onClick={handleCarClick}
       >
         <primitive object={clonedScene} />
-
-        {/* Emissive accent rings on detected wheel positions */}
-        {wheelCenters.map((wc, idx) => (
-          <mesh
-            key={idx}
-            position={[wc.x > 0 ? wc.x + 0.02 : wc.x - 0.02, wc.y, wc.z]}
-            rotation={[0, Math.PI / 2, 0]}
-            material={premiumMaterials.pulsingLightEmissive}
-          >
-            <ringGeometry args={[0.18 / report.normalizedScale, 0.2 / report.normalizedScale, 32]} />
-          </mesh>
-        ))}
       </group>
 
-      {/* Glowing Interior Cabin Hotspot (triggers 1.6s flyTo + scene swap to interior.glb) */}
-      {showCabinHotspot && (
-        <Html
-          position={carConfig.hotspotPosition}
-          center
-          distanceFactor={6}
-          zIndexRange={[20, 0]}
+      {/* Emissive Wheel Rim Accent Rings positioned at normalized front & rear axles */}
+      {[
+        [-0.95, 0.36, 1.38],
+        [0.95, 0.36, 1.38],
+        [-0.96, 0.38, -1.36],
+        [0.96, 0.38, -1.36],
+      ].map((pos, idx) => (
+        <mesh
+          key={idx}
+          position={pos as [number, number, number]}
+          rotation={[0, Math.PI / 2, 0]}
+          material={premiumMaterials.pulsingLightEmissive}
         >
-          <button
-            type="button"
-            onMouseEnter={() => {
-              if (hoverCloseTimeoutRef.current) {
-                clearTimeout(hoverCloseTimeoutRef.current);
-                hoverCloseTimeoutRef.current = null;
-              }
-              setCursorLabel('ENTER');
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              triggerEnterInterior();
-            }}
-            className="group relative flex cursor-pointer items-center gap-2.5 rounded-full border border-[#00f0ff]/80 bg-black/80 px-4 py-2 text-white shadow-[0_0_30px_rgba(0,240,255,0.55)] backdrop-blur-xl transition-all duration-300 hover:scale-110 hover:bg-[#00f0ff] hover:text-black"
-          >
-            <span className="relative flex h-3 w-3">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00f0ff] opacity-85" />
-              <span className="relative inline-flex h-3 w-3 rounded-full bg-[#00f0ff] group-hover:bg-black" />
-            </span>
-            <span className="whitespace-nowrap font-mono text-[11px] font-semibold tracking-[0.24em] uppercase">
-              ENTER COCKPIT
-            </span>
-          </button>
-        </Html>
-      )}
+          <ringGeometry args={[0.21, 0.23, 32]} />
+        </mesh>
+      ))}
 
       {/* Assembly Completion Light Sweep */}
       <pointLight
@@ -556,4 +534,3 @@ export default function ExteriorCar() {
 }
 
 useGLTF.preload(GLB_MODEL_CONFIG.exteriorModelPath, true);
-
