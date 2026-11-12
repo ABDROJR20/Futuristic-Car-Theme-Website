@@ -34,7 +34,7 @@ interface VantaStoreState {
   isReducedMotion: boolean;
   isMobile: boolean;
 
-  // Actions
+  // Action
   setHeroState: (state: HeroState) => void;
   setActiveScene: (scene: ActiveSceneMode) => void;
   setTransitionPhase: (phase: TransitionPhase) => void;
