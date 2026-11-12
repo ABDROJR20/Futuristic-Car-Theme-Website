@@ -248,7 +248,7 @@ export default function CameraRig() {
   ]);
 
   /**
-   * Reverse transition: Interior -> Exterior with doors closing
+   *  Interior -> Exterior with doors closing
    */
   const handleExitInterior = useCallback(() => {
     const state = useVantaStore.getState();
