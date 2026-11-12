@@ -47,22 +47,22 @@ export default function Preloader() {
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-50 flex flex-col justify-between bg-[#05060a] px-8 py-10 text-white select-none"
+      className="fixed inset-0 z-50 flex flex-col justify-between bg-[#05060a] px-4 py-6 sm:px-8 sm:py-10 text-white select-none"
     >
       {/* Top Telemetry Bar */}
-      <div className="flex items-center justify-between text-[11px] tracking-[0.28em] uppercase text-white/50 font-mono">
-        <div className="flex items-center gap-2.5">
-          <span className="h-2 w-2 rounded-full bg-[#00f0ff] animate-pulse" />
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[9px] sm:text-[11px] tracking-[0.2em] sm:tracking-[0.28em] uppercase text-white/50 font-mono">
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          <span className="h-2 w-2 rounded-full bg-[#00f0ff] animate-pulse shrink-0" />
           <span>VANTA AEROSPACE // QUANTUM DRIVE OS v4.2</span>
         </div>
-        <span>SYS.INIT // MATRIX CALIBRATION</span>
+        <span className="hidden sm:inline">SYS.INIT // MATRIX CALIBRATION</span>
       </div>
 
       {/* Center Logo & Progress Bar */}
-      <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6">
+      <div className="mx-auto flex w-full max-w-md flex-col items-center gap-5 sm:gap-6 px-2">
         <div className="flex items-center gap-3">
-          <div className="h-5 w-5 rotate-45 border border-[#00f0ff] bg-[#00f0ff]/10 shadow-[0_0_20px_rgba(0,240,255,0.45)]" />
-          <span className="font-display text-3xl md:text-4xl font-bold tracking-[0.42em] text-white">
+          <div className="h-4 w-4 sm:h-5 sm:w-5 rotate-45 border border-[#00f0ff] bg-[#00f0ff]/10 shadow-[0_0_20px_rgba(0,240,255,0.45)]" />
+          <span className="font-display text-2xl sm:text-3xl md:text-4xl font-bold tracking-[0.35em] sm:tracking-[0.42em] text-white">
             VANTA
           </span>
         </div>
@@ -74,26 +74,26 @@ export default function Preloader() {
           />
         </div>
 
-        <div className="flex w-full justify-between text-[10px] font-mono tracking-[0.25em] uppercase text-white/45">
-          <span>
+        <div className="flex w-full justify-between gap-2 text-[9px] sm:text-[10px] font-mono tracking-[0.18em] sm:tracking-[0.25em] uppercase text-white/45">
+          <span className="truncate">
             {progress < 35
               ? 'LOADING CHASSIS TELEMETRY...'
               : progress < 75
               ? 'ALIGNING MAGNETIC SUB-ASSEMBLIES...'
               : 'ENGAGING SOLID-STATE CORE...'}
           </span>
-          <span className="text-[#00f0ff]">{String(progress).padStart(3, '0')}%</span>
+          <span className="text-[#00f0ff] shrink-0">{String(progress).padStart(3, '0')}%</span>
         </div>
       </div>
 
       {/* Bottom Giant Numeric Counter */}
-      <div className="flex items-end justify-between border-t border-white/10 pt-6">
-        <div className="text-xs font-mono tracking-[0.22em] text-white/40 uppercase">
+      <div className="flex items-end justify-between gap-4 border-t border-white/10 pt-4 sm:pt-6">
+        <div className="text-[10px] sm:text-xs font-mono tracking-[0.16em] sm:tracking-[0.22em] text-white/40 uppercase">
           PHASE 01 // AUTONOMOUS ASSEMBLY SEQUENCE
         </div>
-        <div className="font-display text-6xl md:text-8xl font-extrabold tracking-tighter text-white/90 tabular-nums leading-none">
+        <div className="font-display text-5xl sm:text-6xl md:text-8xl font-extrabold tracking-tighter text-white/90 tabular-nums leading-none shrink-0">
           {String(progress).padStart(3, '0')}
-          <span className="text-2xl md:text-4xl text-[#00f0ff] ml-1">%</span>
+          <span className="text-xl sm:text-2xl md:text-4xl text-[#00f0ff] ml-1">%</span>
         </div>
       </div>
     </div>

@@ -306,12 +306,14 @@ export default function CameraRig() {
     };
   }, [executeFlyTo, handleEnterInterior, handleExitInterior]);
 
-  // Pointer & 360° Drag Look-Around listeners
+  // Pointer & 360° Drag Look-Around listeners (Mouse + Touch for Mobile/Tablet)
   useEffect(() => {
     const domElement = gl.domElement;
+    domElement.style.touchAction = 'pan-y';
 
     const onPointerDown = (e: PointerEvent) => {
       if (useVantaStore.getState().heroState !== 'interior') return;
+      domElement.style.touchAction = 'none';
       interiorLookRef.current.isDragging = true;
       interiorLookRef.current.lastX = e.clientX;
       interiorLookRef.current.lastY = e.clientY;
@@ -328,7 +330,7 @@ export default function CameraRig() {
         interiorLookRef.current.lastY = e.clientY;
 
         // Full 360° yaw (unrestricted), pitch clamped to -60°..+60° (-Math.PI/3 .. +Math.PI/3)
-        const sensitivity = 0.0045;
+        const sensitivity = e.pointerType === 'touch' ? 0.006 : 0.0045;
         interiorLookRef.current.targetYaw -= dx * sensitivity;
         const maxPitch = Math.PI / 3; // 60 degrees
         interiorLookRef.current.targetPitch = THREE.MathUtils.clamp(
@@ -341,16 +343,21 @@ export default function CameraRig() {
 
     const onPointerUp = () => {
       interiorLookRef.current.isDragging = false;
+      if (useVantaStore.getState().heroState !== 'interior') {
+        domElement.style.touchAction = 'pan-y';
+      }
     };
 
     domElement.addEventListener('pointerdown', onPointerDown);
     window.addEventListener('pointermove', onPointerMove, { passive: true });
     window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
 
     return () => {
       domElement.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
     };
   }, [gl.domElement]);
 

@@ -8,16 +8,16 @@ export default function ScrollSections() {
       {/* Section 3: Design (Front & Side Close-ups) */}
       <section
         id="section-design"
-        className="flex min-h-screen w-full items-center px-6 py-24 md:px-16"
+        className="flex min-h-screen w-full items-end sm:items-center px-4 py-16 sm:px-8 sm:py-24 md:px-16"
       >
-        <div className="max-w-md rounded-2xl border border-white/10 bg-black/50 p-8 backdrop-blur-xl pointer-events-auto">
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-black/60 sm:bg-black/50 p-6 sm:p-8 backdrop-blur-xl pointer-events-auto">
           <span className="font-mono text-[10px] tracking-[0.3em] uppercase text-[#00f0ff]">
             01 // AERODYNAMIC SCULPTURE
           </span>
-          <h3 className="mt-2 font-display text-3xl font-bold uppercase tracking-tight text-white">
+          <h3 className="mt-2 font-display text-2xl sm:text-3xl font-bold uppercase tracking-tight text-white">
             FORM CARVED BY PHOTONS
           </h3>
-          <p className="mt-3 text-sm leading-relaxed text-white/65">
+          <p className="mt-3 text-xs sm:text-sm leading-relaxed text-white/65">
             Every surface of the VANTA monocoque channels airflow through active Venturi tunnels,
             generating 820 kg of downforce with a drag coefficient of just 0.19 Cd.
           </p>
@@ -27,16 +27,16 @@ export default function ScrollSections() {
       {/* Section 4: Performance (Scaffold for Phase 4) */}
       <section
         id="section-performance"
-        className="flex min-h-screen w-full items-center justify-end px-6 py-24 md:px-16"
+        className="flex min-h-screen w-full items-end sm:items-center justify-end px-4 py-16 sm:px-8 sm:py-24 md:px-16"
       >
-        <div className="max-w-md rounded-2xl border border-white/10 bg-black/50 p-8 backdrop-blur-xl pointer-events-auto">
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-black/60 sm:bg-black/50 p-6 sm:p-8 backdrop-blur-xl pointer-events-auto">
           <span className="font-mono text-[10px] tracking-[0.3em] uppercase text-[#00f0ff]">
             02 // QUANTUM PROPULSION
           </span>
-          <h3 className="mt-2 font-display text-3xl font-bold uppercase tracking-tight text-white">
+          <h3 className="mt-2 font-display text-2xl sm:text-3xl font-bold uppercase tracking-tight text-white">
             1,020 HP. INSTANT TORQUE VECTORING.
           </h3>
-          <p className="mt-3 text-sm leading-relaxed text-white/65">
+          <p className="mt-3 text-xs sm:text-sm leading-relaxed text-white/65">
             Three axial-flux motors independently meter torque to each wheel in 0.4 milliseconds.
           </p>
         </div>
@@ -45,16 +45,16 @@ export default function ScrollSections() {
       {/* Section 5: Colors (Scaffold for Phase 4) */}
       <section
         id="section-colors"
-        className="flex min-h-screen w-full items-end px-6 py-24 md:px-16"
+        className="flex min-h-screen w-full items-end px-4 py-16 sm:px-8 sm:py-24 md:px-16"
       >
-        <div className="max-w-md rounded-2xl border border-white/10 bg-black/50 p-8 backdrop-blur-xl pointer-events-auto">
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-black/60 sm:bg-black/50 p-6 sm:p-8 backdrop-blur-xl pointer-events-auto">
           <span className="font-mono text-[10px] tracking-[0.3em] uppercase text-[#00f0ff]">
             03 // BESPOKE FINISHES
           </span>
-          <h3 className="mt-2 font-display text-3xl font-bold uppercase tracking-tight text-white">
+          <h3 className="mt-2 font-display text-2xl sm:text-3xl font-bold uppercase tracking-tight text-white">
             METALLIC ATELIER
           </h3>
-          <p className="mt-3 text-sm leading-relaxed text-white/65">
+          <p className="mt-3 text-xs sm:text-sm leading-relaxed text-white/65">
             Multi-stage nano-ceramic pigments engineered to shift tone under city light.
           </p>
         </div>
@@ -63,16 +63,16 @@ export default function ScrollSections() {
       {/* Section 6: Specs (Scaffold for Phase 4) */}
       <section
         id="section-specs"
-        className="flex min-h-screen w-full items-center px-6 py-24 md:px-16"
+        className="flex min-h-screen w-full items-end sm:items-center px-4 py-16 sm:px-8 sm:py-24 md:px-16"
       >
-        <div className="max-w-md rounded-2xl border border-white/10 bg-black/50 p-8 backdrop-blur-xl pointer-events-auto">
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-black/60 sm:bg-black/50 p-6 sm:p-8 backdrop-blur-xl pointer-events-auto">
           <span className="font-mono text-[10px] tracking-[0.3em] uppercase text-[#00f0ff]">
             04 // TECHNICAL ARCHITECTURE
           </span>
-          <h3 className="mt-2 font-display text-3xl font-bold uppercase tracking-tight text-white">
+          <h3 className="mt-2 font-display text-2xl sm:text-3xl font-bold uppercase tracking-tight text-white">
             ENGINEERING BLUEPRINT
           </h3>
-          <p className="mt-3 text-sm leading-relaxed text-white/65">
+          <p className="mt-3 text-xs sm:text-sm leading-relaxed text-white/65">
             900V silicon-carbide architecture paired with structural solid-state cells.
           </p>
         </div>
