@@ -5,7 +5,12 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { CAR_LINEUP, CameraPose, CameraViewKey } from '@/lib/carConfig';
+import {
+  CAR_LINEUP,
+  CameraPose,
+  CameraViewKey,
+  INTERIOR_HOTSPOTS,
+} from '@/lib/carConfig';
 import { useVantaStore } from '@/store/useVantaStore';
 
 if (typeof window !== 'undefined') {
@@ -21,8 +26,9 @@ export interface FlyToOptions {
   onComplete?: () => void;
 }
 
-// Module-level reference so external UI or helpers can invoke flyTo if needed
 let activeFlyToHandler: ((opts: FlyToOptions) => void) | null = null;
+let activeEnterInteriorHandler: (() => void) | null = null;
+let activeExitInteriorHandler: (() => void) | null = null;
 
 export function flyTo(options: FlyToOptions) {
   if (activeFlyToHandler) {
@@ -30,15 +36,34 @@ export function flyTo(options: FlyToOptions) {
   }
 }
 
+export function triggerEnterInterior() {
+  if (activeEnterInteriorHandler) {
+    activeEnterInteriorHandler();
+  }
+}
+
+export function triggerExitInterior() {
+  if (activeExitInteriorHandler) {
+    activeExitInteriorHandler();
+  }
+}
+
 export default function CameraRig() {
-  const { camera } = useThree();
+  const { camera, gl } = useThree();
   const heroState = useVantaStore((s) => s.heroState);
   const activeCar = useVantaStore((s) => s.activeCar);
   const interiorSeat = useVantaStore((s) => s.interiorSeat);
+  const activeHotspotId = useVantaStore((s) => s.activeHotspotId);
   const isReducedMotion = useVantaStore((s) => s.isReducedMotion);
   const isMobile = useVantaStore((s) => s.isMobile);
+
   const setHeroState = useVantaStore((s) => s.setHeroState);
+  const setActiveScene = useVantaStore((s) => s.setActiveScene);
+  const setTransitionPhase = useVantaStore((s) => s.setTransitionPhase);
   const setActiveSection = useVantaStore((s) => s.setActiveSection);
+  const setInteriorSeat = useVantaStore((s) => s.setInteriorSeat);
+  const setActiveHotspotId = useVantaStore((s) => s.setActiveHotspotId);
+  const toggleInteriorSeat = useVantaStore((s) => s.toggleInteriorSeat);
 
   const carConfig = CAR_LINEUP[activeCar] ?? CAR_LINEUP[0];
   const initialExterior = carConfig.cameras.exterior;
@@ -56,8 +81,22 @@ export default function CameraRig() {
   });
   const camFov = useRef({ value: initialExterior.fov });
 
-  // Pointer coordinates for subtle parallax / interior free-look
+  // Pointer coordinates for subtle idle parallax
   const pointerRef = useRef({ x: 0, y: 0, smoothX: 0, smoothY: 0 });
+
+  // 360° Interior drag look-around state (yaw unrestricted, pitch clamped -60° to +60°)
+  const interiorLookRef = useRef({
+    isDragging: false,
+    lastX: 0,
+    lastY: 0,
+    targetYaw: 0,
+    targetPitch: -0.05,
+    currentYaw: 0,
+    currentPitch: -0.05,
+  });
+
+  // Hotspot nudge offset
+  const nudgeOffsetRef = useRef({ x: 0, y: 0, z: 0 });
   const lookAtVec = useRef(new THREE.Vector3());
   const isScrollingBelowHero = useRef(false);
 
@@ -68,7 +107,7 @@ export default function CameraRig() {
     ({
       position,
       target,
-      fov = 40,
+      fov = 45,
       duration = 1.35,
       ease = 'power3.inOut',
       onComplete,
@@ -115,14 +154,6 @@ export default function CameraRig() {
     [isReducedMotion]
   );
 
-  // Register global singleton handler
-  useEffect(() => {
-    activeFlyToHandler = executeFlyTo;
-    return () => {
-      activeFlyToHandler = null;
-    };
-  }, [executeFlyTo]);
-
   /**
    * Helper to fly to one of the 4 predefined views: exterior, doorsOpen, driverSeat, rearSeat
    */
@@ -132,7 +163,6 @@ export default function CameraRig() {
       overrides?: Partial<Pick<FlyToOptions, 'duration' | 'ease' | 'onComplete'>>
     ) => {
       const pose: CameraPose = carConfig.cameras[view];
-      // Adjust slightly on narrow mobile viewports so the full car stays framed
       const mobileDistanceMultiplier =
         isMobile && (view === 'exterior' || view === 'doorsOpen') ? 1.28 : 1;
 
@@ -152,48 +182,223 @@ export default function CameraRig() {
     [carConfig, executeFlyTo, isMobile]
   );
 
-  // Track mouse movement for subtle camera parallax & interior look-around
+  /**
+   * Two-scene transition: Exterior -> Cabin Fly-Through (1.6s, power3.inOut, FOV 45 -> 70)
+   * with blur/vignette + flash/dissolve swap to /models/interior.glb
+   */
+  const handleEnterInterior = useCallback(() => {
+    const state = useVantaStore.getState();
+    if (state.heroState === 'interior' || state.transitionPhase !== 'none') return;
+
+    setInteriorSeat('driver');
+    setActiveHotspotId(null);
+    interiorLookRef.current.targetYaw = 0;
+    interiorLookRef.current.currentYaw = 0;
+    interiorLookRef.current.targetPitch = -0.04;
+    interiorLookRef.current.currentPitch = -0.04;
+
+    if (isReducedMotion) {
+      setActiveScene('interior');
+      setHeroState('interior');
+      setTransitionPhase('none');
+      flyToPredefinedView('driverSeat', { duration: 0 });
+      return;
+    }
+
+    setTransitionPhase('entering-fly');
+
+    const driverPose = carConfig.cameras.driverSeat;
+    // Fly from exterior into cabin threshold over 1.6s, widening FOV 45 -> 70
+    executeFlyTo({
+      position: [driverPose.position[0], driverPose.position[1] + 0.05, driverPose.position[2] + 0.15],
+      target: driverPose.target,
+      fov: 70,
+      duration: 1.6,
+      ease: 'power3.inOut',
+    });
+
+    // Trigger quick flash/dissolve near the end of the camera fly-through and swap scene
+    gsap.delayedCall(1.22, () => {
+      setTransitionPhase('flash-swap');
+      gsap.delayedCall(0.22, () => {
+        setActiveScene('interior');
+        setHeroState('interior');
+        camPos.current.x = driverPose.position[0];
+        camPos.current.y = driverPose.position[1];
+        camPos.current.z = driverPose.position[2];
+        camTarget.current.x = driverPose.target[0];
+        camTarget.current.y = driverPose.target[1];
+        camTarget.current.z = driverPose.target[2];
+        camFov.current.value = 70;
+      });
+      gsap.delayedCall(0.55, () => {
+        setTransitionPhase('none');
+      });
+    });
+  }, [
+    carConfig,
+    executeFlyTo,
+    flyToPredefinedView,
+    isReducedMotion,
+    setActiveHotspotId,
+    setActiveScene,
+    setHeroState,
+    setInteriorSeat,
+    setTransitionPhase,
+  ]);
+
+  /**
+   * Reverse transition: Interior -> Exterior with doors closing
+   */
+  const handleExitInterior = useCallback(() => {
+    const state = useVantaStore.getState();
+    if (state.heroState !== 'interior') return;
+
+    setActiveHotspotId(null);
+
+    if (isReducedMotion) {
+      setActiveScene('exterior');
+      setTransitionPhase('none');
+      setHeroState('idle');
+      flyToPredefinedView('exterior', { duration: 0 });
+      return;
+    }
+
+    setTransitionPhase('exiting-flash');
+    setHeroState('exiting');
+
+    gsap.delayedCall(0.2, () => {
+      setActiveScene('exterior');
+      const doorsPose = carConfig.cameras.doorsOpen;
+      camPos.current.x = doorsPose.position[0] * 0.65;
+      camPos.current.y = doorsPose.position[1] * 0.85;
+      camPos.current.z = doorsPose.position[2] * 0.65;
+      camFov.current.value = 65;
+
+      flyToPredefinedView('exterior', {
+        duration: 1.45,
+        ease: 'power3.inOut',
+        onComplete: () => {
+          setHeroState('idle');
+          setTransitionPhase('none');
+        },
+      });
+    });
+  }, [
+    carConfig,
+    flyToPredefinedView,
+    isReducedMotion,
+    setActiveHotspotId,
+    setActiveScene,
+    setHeroState,
+    setTransitionPhase,
+  ]);
+
+  // Register global handlers
   useEffect(() => {
-    const handlePointerMove = (e: MouseEvent) => {
+    activeFlyToHandler = executeFlyTo;
+    activeEnterInteriorHandler = handleEnterInterior;
+    activeExitInteriorHandler = handleExitInterior;
+    return () => {
+      activeFlyToHandler = null;
+      activeEnterInteriorHandler = null;
+      activeExitInteriorHandler = null;
+    };
+  }, [executeFlyTo, handleEnterInterior, handleExitInterior]);
+
+  // Pointer & 360° Drag Look-Around listeners
+  useEffect(() => {
+    const domElement = gl.domElement;
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (useVantaStore.getState().heroState !== 'interior') return;
+      interiorLookRef.current.isDragging = true;
+      interiorLookRef.current.lastX = e.clientX;
+      interiorLookRef.current.lastY = e.clientY;
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
       pointerRef.current.x = (e.clientX / window.innerWidth) * 2 - 1;
       pointerRef.current.y = -(e.clientY / window.innerHeight) * 2 + 1;
-    };
-    window.addEventListener('mousemove', handlePointerMove, { passive: true });
-    return () => window.removeEventListener('mousemove', handlePointerMove);
-  }, []);
 
-  // React to heroState & activeCar changes
+      if (interiorLookRef.current.isDragging && useVantaStore.getState().heroState === 'interior') {
+        const dx = e.clientX - interiorLookRef.current.lastX;
+        const dy = e.clientY - interiorLookRef.current.lastY;
+        interiorLookRef.current.lastX = e.clientX;
+        interiorLookRef.current.lastY = e.clientY;
+
+        // Full 360° yaw (unrestricted), pitch clamped to -60°..+60° (-Math.PI/3 .. +Math.PI/3)
+        const sensitivity = 0.0045;
+        interiorLookRef.current.targetYaw -= dx * sensitivity;
+        const maxPitch = Math.PI / 3; // 60 degrees
+        interiorLookRef.current.targetPitch = THREE.MathUtils.clamp(
+          interiorLookRef.current.targetPitch - dy * sensitivity,
+          -maxPitch,
+          maxPitch
+        );
+      }
+    };
+
+    const onPointerUp = () => {
+      interiorLookRef.current.isDragging = false;
+    };
+
+    domElement.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    window.addEventListener('pointerup', onPointerUp);
+
+    return () => {
+      domElement.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+  }, [gl.domElement]);
+
+  // Keyboard shortcuts inside the car: ArrowDown / S for rear/front seat toggle, ESC to exit
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (useVantaStore.getState().heroState !== 'interior') return;
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleExitInterior();
+      } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+        e.preventDefault();
+        toggleInteriorSeat();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleExitInterior, toggleInteriorSeat]);
+
+  // React to heroState & interiorSeat changes
   useEffect(() => {
     if (isScrollingBelowHero.current && heroState === 'idle') return;
 
     if (heroState === 'assembling') {
-      // Dramatic wider angle during assembly, settling into exterior pose
       const ext = carConfig.cameras.exterior;
       const mult = isMobile ? 1.3 : 1;
       executeFlyTo({
-        position: [ext.position[0] * 1.15 * mult, ext.position[1] * 1.2, ext.position[2] * 1.15 * mult],
+        position: [
+          ext.position[0] * 1.15 * mult,
+          ext.position[1] * 1.18,
+          ext.position[2] * 1.15 * mult,
+        ],
         target: ext.target,
         fov: ext.fov + 3,
         duration: 1.2,
         ease: 'power2.out',
       });
     } else if (heroState === 'idle') {
-      flyToPredefinedView('exterior', { duration: 1.2, ease: 'power3.out' });
+      flyToPredefinedView('exterior', { duration: 1.15, ease: 'power3.out' });
     } else if (heroState === 'doorsOpen') {
-      flyToPredefinedView('doorsOpen', { duration: 0.95, ease: 'power2.out' });
+      flyToPredefinedView('doorsOpen', { duration: 0.9, ease: 'power2.out' });
     } else if (heroState === 'interior') {
       const targetView: CameraViewKey = interiorSeat === 'rear' ? 'rearSeat' : 'driverSeat';
-      flyToPredefinedView(targetView, { duration: 1.4, ease: 'power3.inOut' });
-    } else if (heroState === 'exiting') {
-      flyToPredefinedView('exterior', {
-        duration: 1.3,
-        ease: 'power3.inOut',
-        onComplete: () => {
-          setHeroState('idle');
-        },
-      });
+      flyToPredefinedView(targetView, { duration: 1.1, ease: 'power3.inOut' });
     }
-  }, [heroState, interiorSeat, activeCar, carConfig, executeFlyTo, flyToPredefinedView, isMobile, setHeroState]);
+  }, [heroState, interiorSeat, activeCar, carConfig, executeFlyTo, flyToPredefinedView, isMobile]);
 
   // Master GSAP ScrollTrigger timeline for sections below the hero
   useEffect(() => {
@@ -232,7 +437,6 @@ export default function CameraRig() {
         },
       });
 
-      // Ensure starting values match exterior camera pose
       masterTl.fromTo(
         camPos.current,
         {
@@ -262,7 +466,6 @@ export default function CameraRig() {
         0
       );
 
-      // Step 2: Design Side Profile
       masterTl.to(
         camPos.current,
         {
@@ -286,7 +489,6 @@ export default function CameraRig() {
         1
       );
 
-      // Step 3: Performance Rear Aero Angle
       masterTl.to(
         camPos.current,
         {
@@ -310,7 +512,6 @@ export default function CameraRig() {
         2
       );
 
-      // Step 4: Colors Studio Showcase
       masterTl.to(
         camPos.current,
         {
@@ -334,7 +535,6 @@ export default function CameraRig() {
         3
       );
 
-      // Step 5: Specs Overhead Blueprint View
       masterTl.to(
         camPos.current,
         {
@@ -358,7 +558,6 @@ export default function CameraRig() {
         4
       );
 
-      // Step 6: CTA Final Heroic Stance
       masterTl.to(
         camPos.current,
         {
@@ -388,26 +587,65 @@ export default function CameraRig() {
     };
   }, [carConfig, isMobile, setActiveSection]);
 
-  // Apply camera position, FOV, and subtle pointer parallax on every R3F frame
+  // Frame loop: apply position, FOV, 360° damped interior look, hotspot nudge & idle parallax
   useFrame((state, delta) => {
     const ptr = pointerRef.current;
-    ptr.smoothX = THREE.MathUtils.lerp(ptr.smoothX, ptr.x, Math.min(1, delta * 5));
-    ptr.smoothY = THREE.MathUtils.lerp(ptr.smoothY, ptr.y, Math.min(1, delta * 5));
+    const damp = Math.min(1, delta * 6);
+    ptr.smoothX = THREE.MathUtils.lerp(ptr.smoothX, ptr.x, damp);
+    ptr.smoothY = THREE.MathUtils.lerp(ptr.smoothY, ptr.y, damp);
 
     const isInterior = heroState === 'interior';
-    const parallaxAmp = isReducedMotion ? 0 : isInterior ? 0.35 : 0.14;
 
     if (isInterior) {
-      // Inside cabin: camera stays rooted at seat headrest, target pans with mouse for free-look
+      const look = interiorLookRef.current;
+      look.currentYaw = THREE.MathUtils.lerp(look.currentYaw, look.targetYaw, damp);
+      look.currentPitch = THREE.MathUtils.lerp(look.currentPitch, look.targetPitch, damp);
+
+      // Subtle mouse parallax when not actively dragging
+      const idleYawOffset = look.isDragging ? 0 : -ptr.smoothX * 0.08;
+      const idlePitchOffset = look.isDragging ? 0 : ptr.smoothY * 0.05;
+
+      const finalYaw = look.currentYaw + idleYawOffset;
+      const finalPitch = THREE.MathUtils.clamp(
+        look.currentPitch + idlePitchOffset,
+        -Math.PI / 3,
+        Math.PI / 3
+      );
+
+      // Compute spherical look direction vector from seat headrest position
+      const dirX = Math.sin(finalYaw) * Math.cos(finalPitch);
+      const dirY = Math.sin(finalPitch);
+      const dirZ = Math.cos(finalYaw) * Math.cos(finalPitch);
+
+      // Gentle camera nudge toward hovered hotspot
+      const hoveredHotspot = activeHotspotId
+        ? INTERIOR_HOTSPOTS.find((h) => h.id === activeHotspotId)
+        : null;
+
+      const targetNudgeX = hoveredHotspot
+        ? (hoveredHotspot.nudgeTarget[0] - camPos.current.x) * 0.22
+        : 0;
+      const targetNudgeY = hoveredHotspot
+        ? (hoveredHotspot.nudgeTarget[1] - camPos.current.y) * 0.22
+        : 0;
+      const targetNudgeZ = hoveredHotspot
+        ? (hoveredHotspot.nudgeTarget[2] - (camPos.current.z + 1.0)) * 0.22
+        : 0;
+
+      nudgeOffsetRef.current.x = THREE.MathUtils.lerp(nudgeOffsetRef.current.x, targetNudgeX, damp);
+      nudgeOffsetRef.current.y = THREE.MathUtils.lerp(nudgeOffsetRef.current.y, targetNudgeY, damp);
+      nudgeOffsetRef.current.z = THREE.MathUtils.lerp(nudgeOffsetRef.current.z, targetNudgeZ, damp);
+
       camera.position.set(camPos.current.x, camPos.current.y, camPos.current.z);
       lookAtVec.current.set(
-        camTarget.current.x - ptr.smoothX * parallaxAmp,
-        camTarget.current.y + ptr.smoothY * (parallaxAmp * 0.65),
-        camTarget.current.z
+        camPos.current.x + dirX * 1.5 + nudgeOffsetRef.current.x,
+        camPos.current.y + dirY * 1.5 + nudgeOffsetRef.current.y,
+        camPos.current.z + dirZ * 1.5 + nudgeOffsetRef.current.z
       );
     } else {
-      // Exterior: subtle floating orbit offset + subtle idle breathing
-      const breath = isReducedMotion ? 0 : Math.sin(state.clock.elapsedTime * 0.9) * 0.025;
+      const parallaxAmp = isReducedMotion ? 0 : 0.14;
+      const breath = isReducedMotion ? 0 : Math.sin(state.clock.elapsedTime * 0.9) * 0.02;
+
       camera.position.set(
         camPos.current.x + ptr.smoothX * parallaxAmp,
         camPos.current.y + ptr.smoothY * (parallaxAmp * 0.5) + breath,
@@ -428,4 +666,3 @@ export default function CameraRig() {
 
   return null;
 }
-

@@ -2,6 +2,7 @@ import SmoothScroll from '@/components/SmoothScroll';
 import SceneWrapper from '@/components/canvas/SceneWrapper';
 import Preloader from '@/components/ui/Preloader';
 import Navbar from '@/components/ui/Navbar';
+import InteriorHUD from '@/components/ui/InteriorHUD';
 import HeroSection from '@/components/sections/HeroSection';
 import ScrollSections from '@/components/sections/ScrollSections';
 
@@ -22,6 +23,9 @@ export default function HomePage() {
 
       {/* Top Glassmorphic Navigation */}
       <Navbar />
+
+      {/* Two-Scene Transition Overlay & Interior 360° Cockpit HUD */}
+      <InteriorHUD />
 
       {/* Scrollable HTML Sections above Canvas */}
       <main className="relative z-10 w-full pointer-events-none">

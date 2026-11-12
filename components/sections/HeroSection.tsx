@@ -3,14 +3,21 @@
 import React from 'react';
 import { CAR_LINEUP } from '@/lib/carConfig';
 import { useVantaStore } from '@/store/useVantaStore';
+import { triggerEnterInterior } from '@/components/canvas/CameraRig';
 
 export default function HeroSection() {
   const activeCar = useVantaStore((s) => s.activeCar);
   const heroState = useVantaStore((s) => s.heroState);
   const accentColor = useVantaStore((s) => s.accentColor);
+  const exteriorDoorDiagnostic = useVantaStore((s) => s.exteriorDoorDiagnostic);
   const triggerAssembly = useVantaStore((s) => s.triggerAssembly);
 
   const car = CAR_LINEUP[activeCar] ?? CAR_LINEUP[0];
+
+  // Hide exterior Hero UI when inside the car
+  if (heroState === 'interior') {
+    return <section id="section-hero" className="min-h-screen w-full pointer-events-none" />;
+  }
 
   return (
     <section
@@ -35,8 +42,8 @@ export default function HeroSection() {
         </h1>
       </div>
 
-      {/* Top Row: Telemetry & State Pill */}
-      <div className="mx-auto flex w-full max-w-[1440px] items-start justify-between">
+      {/* Top Row: Telemetry, Door Diagnostic & Quick Controls */}
+      <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2.5 text-[11px] font-mono tracking-[0.25em] uppercase text-white/60">
             <span
@@ -51,30 +58,38 @@ export default function HeroSection() {
           <p className="text-xs font-mono tracking-[0.18em] text-white/40 uppercase">
             {car.subtitle}
           </p>
+          {exteriorDoorDiagnostic.hasSeparateDoors === false && (
+            <p className="mt-1 max-w-md rounded border border-amber-400/30 bg-amber-950/40 px-2.5 py-1 font-mono text-[10px] text-amber-200/90 backdrop-blur-md">
+              GLB DIAGNOSTIC: {exteriorDoorDiagnostic.message}
+            </p>
+          )}
         </div>
 
-        {/* Phase 1 Camera / Assembly Quick Test Controls */}
-        <div className="pointer-events-auto hidden sm:flex items-center gap-2 rounded-full border border-white/10 bg-black/45 px-4 py-2 backdrop-blur-md">
-          <span className="text-[10px] font-mono tracking-[0.2em] text-white/45 uppercase mr-1">
-            CHASSIS:
-          </span>
+        <div className="pointer-events-auto flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={triggerEnterInterior}
+            className="cursor-pointer rounded-full border border-[#00f0ff]/60 bg-[#00f0ff]/10 px-4 py-2 font-mono text-[10px] font-semibold tracking-[0.22em] uppercase text-[#00f0ff] backdrop-blur-md transition hover:bg-[#00f0ff] hover:text-black"
+          >
+            ENTER COCKPIT →
+          </button>
+
           <button
             type="button"
             onClick={triggerAssembly}
-            className="cursor-pointer text-[10px] font-mono tracking-[0.2em] uppercase text-[#00f0ff] hover:underline"
+            className="hidden sm:inline-flex cursor-pointer rounded-full border border-white/10 bg-black/45 px-4 py-2 font-mono text-[10px] tracking-[0.2em] uppercase text-white/75 backdrop-blur-md transition hover:border-white/30 hover:text-white"
           >
-            REPLAY EXPLODED ASSEMBLY
+            REPLAY ASSEMBLY
           </button>
         </div>
       </div>
 
-      {/* Bottom Row: Tagline, Quick Telemetry & Scroll Hint */}
+      {/* Bottom Row: Tagline, Scroll Hint & Key Specs Pill */}
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 md:flex-row md:items-end md:justify-between">
-        {/* Left: Tagline */}
         <div className="max-w-lg space-y-2">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 backdrop-blur-md">
             <span className="text-[10px] font-mono tracking-[0.24em] text-[#00f0ff] uppercase">
-              SOLID-STATE TRI-MOTOR ARCHITECTURE
+              HOVER CAR TO OPEN DOORS • CLICK HOTSPOT FOR 360° CABIN
             </span>
           </div>
           <h2 className="font-display text-2xl md:text-4xl font-bold tracking-tight uppercase text-white">
@@ -82,7 +97,6 @@ export default function HeroSection() {
           </h2>
         </div>
 
-        {/* Center: Scroll Hint */}
         <div className="flex flex-col items-center gap-2 self-center">
           <span className="text-[10px] font-mono tracking-[0.32em] uppercase text-white/45">
             SCROLL TO EXPLORE
@@ -92,7 +106,6 @@ export default function HeroSection() {
           </div>
         </div>
 
-        {/* Right: Key Specs Pill */}
         <div className="grid grid-cols-3 gap-4 rounded-2xl border border-white/10 bg-black/45 px-6 py-4 backdrop-blur-xl">
           <div>
             <div className="text-[10px] font-mono tracking-[0.2em] text-white/45 uppercase">
@@ -126,4 +139,3 @@ export default function HeroSection() {
     </section>
   );
 }
-

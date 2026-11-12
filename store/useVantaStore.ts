@@ -4,6 +4,8 @@ import { CAR_LINEUP, VANTA_COLOR_SWATCHES } from '@/lib/carConfig';
 export type HeroState = 'assembling' | 'idle' | 'doorsOpen' | 'interior' | 'exiting';
 export type SectionId = 'hero' | 'design' | 'performance' | 'colors' | 'specs' | 'cta';
 export type InteriorSeatView = 'driver' | 'rear';
+export type ActiveSceneMode = 'exterior' | 'interior';
+export type TransitionPhase = 'none' | 'entering-fly' | 'flash-swap' | 'exiting-flash';
 
 interface VantaStoreState {
   // Core required state
@@ -12,6 +14,16 @@ interface VantaStoreState {
   activeColor: string;
   activeSection: SectionId;
   scrollProgress: number;
+
+  // Two-scene & interaction state
+  activeScene: ActiveSceneMode;
+  transitionPhase: TransitionPhase;
+  activeHotspotId: string | null;
+  interiorLoading: boolean;
+  exteriorDoorDiagnostic: {
+    hasSeparateDoors: boolean | null;
+    message: string | null;
+  };
 
   // Auxiliary UI & interaction state
   preloaderDone: boolean;
@@ -24,6 +36,11 @@ interface VantaStoreState {
 
   // Actions
   setHeroState: (state: HeroState) => void;
+  setActiveScene: (scene: ActiveSceneMode) => void;
+  setTransitionPhase: (phase: TransitionPhase) => void;
+  setActiveHotspotId: (id: string | null) => void;
+  setInteriorLoading: (loading: boolean) => void;
+  setExteriorDoorDiagnostic: (hasSeparateDoors: boolean, message: string) => void;
   setActiveCar: (index: number) => void;
   nextCar: () => void;
   prevCar: () => void;
@@ -45,6 +62,15 @@ export const useVantaStore = create<VantaStoreState>((set, get) => ({
   activeSection: 'hero',
   scrollProgress: 0,
 
+  activeScene: 'exterior',
+  transitionPhase: 'none',
+  activeHotspotId: null,
+  interiorLoading: false,
+  exteriorDoorDiagnostic: {
+    hasSeparateDoors: null,
+    message: null,
+  },
+
   preloaderDone: false,
   interiorSeat: 'driver',
   assemblyKey: 0,
@@ -54,6 +80,12 @@ export const useVantaStore = create<VantaStoreState>((set, get) => ({
   isMobile: false,
 
   setHeroState: (heroState) => set({ heroState }),
+  setActiveScene: (activeScene) => set({ activeScene }),
+  setTransitionPhase: (transitionPhase) => set({ transitionPhase }),
+  setActiveHotspotId: (activeHotspotId) => set({ activeHotspotId }),
+  setInteriorLoading: (interiorLoading) => set({ interiorLoading }),
+  setExteriorDoorDiagnostic: (hasSeparateDoors, message) =>
+    set({ exteriorDoorDiagnostic: { hasSeparateDoors, message } }),
 
   setActiveCar: (index) => {
     const total = CAR_LINEUP.length;
@@ -63,6 +95,9 @@ export const useVantaStore = create<VantaStoreState>((set, get) => ({
       activeCar: normalized,
       activeColor: car.defaultColor,
       accentColor: car.accentColor,
+      activeScene: 'exterior',
+      transitionPhase: 'none',
+      activeHotspotId: null,
       heroState: state.isReducedMotion ? 'idle' : 'assembling',
       interiorSeat: 'driver',
       assemblyKey: state.assemblyKey + 1,
@@ -104,10 +139,14 @@ export const useVantaStore = create<VantaStoreState>((set, get) => ({
   toggleInteriorSeat: () =>
     set((state) => ({
       interiorSeat: state.interiorSeat === 'driver' ? 'rear' : 'driver',
+      activeHotspotId: null,
     })),
 
   triggerAssembly: () =>
     set((state) => ({
+      activeScene: 'exterior',
+      transitionPhase: 'none',
+      activeHotspotId: null,
       heroState: state.isReducedMotion ? 'idle' : 'assembling',
       interiorSeat: 'driver',
       assemblyKey: state.assemblyKey + 1,
@@ -121,4 +160,3 @@ export const useVantaStore = create<VantaStoreState>((set, get) => ({
       isMobile: flags.isMobile ?? state.isMobile,
     })),
 }));
-
